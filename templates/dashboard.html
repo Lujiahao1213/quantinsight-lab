@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel dashboard-panel">
+  <header class="dashboard-page-header dashboard-page-header--minimal">
+    <h2 class="dashboard-page-title">Market Dashboard</h2>
+  </header>
+
+  {# 1. Dataset summary bar (subdued) #}
+  <div class="dataset-summary-bar dataset-summary-bar--subtle" role="region" aria-label="Dataset summary">
+    <div class="dataset-summary-item">
+      <span class="ds-label">Dataset</span>
+      <span class="ds-name">{{ source_file_name }}</span>
+    </div>
+    <span class="dataset-summary-divider" aria-hidden="true"></span>
+    <div class="dataset-summary-item">
+      <span class="ds-label">Rows</span>
+      <span class="ds-value-subtle">{{ summary.total_rows }}</span>
+    </div>
+    <span class="dataset-summary-divider" aria-hidden="true"></span>
+    <div class="dataset-summary-item dataset-summary-item-grow">
+      <span class="ds-label">Date range</span>
+      <span class="ds-value-wrap">{{ summary.date_range }}</span>
+    </div>
+  </div>
+
+  {# 2. AI Quant Decision Center #}
+  <div class="ai-decision-center" role="region" aria-labelledby="ai-decision-title">
+    <header class="ai-decision-header">
+      <h2 class="ai-decision-title" id="ai-decision-title">AI Quant Decision Center</h2>
+      <p class="ai-decision-subtitle">
+        Latest decision summary based on technical indicators, strategy-style rule stack, and Random Forest research model (five-session horizon).
+        {% if buy_signal.get("as_of_date") %}<span class="ai-decision-asof">As of {{ buy_signal["as_of_date"] }}.</span>{% elif rf_predictor.get("as_of_date") %}<span class="ai-decision-asof">As of {{ rf_predictor["as_of_date"] }}.</span>{% endif %}
+      </p>
+    </header>
+
+    <p class="ai-decision-disclaimer">
+      Research and education only — not investment advice. Probabilities are model estimates, not exchange outcomes or limit-up events.
+    </p>
+
+    {% set sc = buy_signal.get("buy_score") %}
+    {% if sc is none %}
+      {% set bar_pct = 0 %}
+    {% elif sc < 0 %}
+      {% set bar_pct = 0 %}
+    {% elif sc > 100 %}
+      {% set bar_pct = 100 %}
+    {% else %}
+      {% set bar_pct = sc %}
+    {% endif %}
+    {% set rec_slug = (buy_signal.get("recommendation") or "neutral") | lower | replace(" ", "-") %}
+
+    <div class="decision-cards">
+      <article class="decision-card decision-card-score">
+        <div class="decision-card-label">Buy score</div>
+        {% if buy_signal.get("ok") %}
+        <div class="decision-score-row">
+          <span class="decision-score-num">{{ buy_signal["buy_score"] }}</span>
+          <span class="decision-score-denom">/ 100</span>
+        </div>
+        <div class="decision-score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ bar_pct }}">
+          <div class="decision-score-bar-fill decision-score-fill--{{ rec_slug }}" style="width: {{ bar_pct }}%;"></div>
+        </div>
+        <p class="decision-card-foot">Rule stack on the latest bar (0–100 reference bar).</p>
+        {% else %}
+        <p class="decision-card-missing">{{ buy_signal.get("error", "Score unavailable.") }}</p>
+        {% endif %}
+      </article>
+
+      <article class="decision-card decision-card-rec">
+        <div class="decision-card-label">Final recommendation</div>
+        {% if buy_signal.get("ok") %}
+        <div class="decision-rec-wrap">
+          <span class="decision-rec-badge decision-rec--{{ rec_slug }}">{{ buy_signal["recommendation"] }}</span>
+        </div>
+        <p class="decision-card-foot">From the buy-score rule engine.</p>
+        {% else %}
+        <p class="decision-card-missing">—</p>
+        {% endif %}
+      </article>
+
+      <article class="decision-card decision-card-ai">
+        <div class="decision-card-label">AI Up probability</div>
+        {% if rf_predictor.get("ok") and rf_predictor.get("probability_up") is not none %}
+        <div class="decision-metric-huge">{{ "%.1f"|format(rf_predictor["probability_up"] * 100) }}%</div>
+        <p class="decision-card-foot">Chance the close is higher after five trading sessions (RF classifier).</p>
+        {% else %}
+        <p class="decision-card-missing">{{ rf_predictor.get("error", "RF block unavailable.") }}</p>
+        {% endif %}
+      </article>
+
+      <article class="decision-card decision-card-risk">
+        <div class="decision-card-label">Strong rise / sharp drop</div>
+        {% if rf_predictor.get("ok") %}
+        <div class="decision-risk-rows">
+          <div class="decision-risk-row">
+            <span class="decision-risk-k">Strong rise probability</span>
+            <span class="decision-risk-v decision-risk-v--up">{{ "%.1f"|format((rf_predictor.get("strong_rise_probability") or 0) * 100) }}%</span>
+          </div>
+          <div class="decision-risk-row">
+            <span class="decision-risk-k">Sharp drop risk</span>
+            <span class="decision-risk-v decision-risk-v--down">{{ "%.1f"|format((rf_predictor.get("sharp_drop_risk") or 0) * 100) }}%</span>
+          </div>
+        </div>
+        <p class="decision-card-foot decision-card-foot--tight">Same RF Up/Down estimates; wording suited for HK listings (not limit-up language).</p>
+        {% else %}
+        <p class="decision-card-missing">—</p>
+        {% endif %}
+      </article>
+    </div>
+
+    <div class="decision-narrative-box">
+      <p class="decision-narrative-text">{{ decision_narrative }}</p>
+    </div>
+  </div>
+
+  {# 3. Market overview #}
+  <div class="section-heading dashboard-section-heading">
+    <h3 class="dashboard-section-title">Market overview</h3>
+  </div>
+  <div class="market-overview-grid">
+    <div class="mkt-card">
+      <div class="mkt-label">Average close</div>
+      <div class="mkt-value">{{ summary.avg_close }}</div>
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-label">Max close</div>
+      <div class="mkt-value">{{ summary.max_close }}</div>
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-label">Min close</div>
+      <div class="mkt-value">{{ summary.min_close }}</div>
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-label">Average volume</div>
+      <div class="mkt-value">{{ summary.avg_volume }}</div>
+    </div>
+  </div>
+
+  {# 4. Market visualization #}
+  <div class="section-heading dashboard-section-heading">
+    <h3 class="dashboard-section-title">Market visualization</h3>
+  </div>
+  <div class="chart-grid chart-grid-dashboard">
+    <div class="chart-card">
+      <h3>Close price</h3>
+      {{ charts.close | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Moving averages</h3>
+      {{ charts.ma | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Volume</h3>
+      {{ charts.volume | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Daily return histogram</h3>
+      {{ charts.returns | safe }}
+    </div>
+  </div>
+
+  {# 5. Collapsible advanced sections #}
+  <div class="adv-sections">
+    <details class="adv-details">
+      <summary class="adv-summary">View technical details</summary>
+      <div class="adv-body">
+        {% if buy_signal.get("ok") %}
+        {% set snap = buy_signal["indicator_snapshot"] %}
+        <h4 class="adv-inner-title">Indicator snapshot</h4>
+        <ul class="adv-snap-list">
+          <li><span>RSI</span><strong>{% if snap.get("rsi") is not none %}{{ "%.2f"|format(snap["rsi"]) }}{% else %}N/A{% endif %}</strong></li>
+          <li><span>MACD DIF / DEA</span><strong>{% if snap.get("macd_dif") is not none and snap.get("macd_dea") is not none %}{{ "%.4f"|format(snap["macd_dif"]) }} / {{ "%.4f"|format(snap["macd_dea"]) }}{% else %}N/A{% endif %}</strong></li>
+          <li><span>MACD histogram</span><strong>{% if snap.get("macd_hist") is not none %}{{ "%.4f"|format(snap["macd_hist"]) }}{% else %}N/A{% endif %}</strong></li>
+          <li><span>MA10 / MA20 / MA50</span><strong>{% if snap.get("ma10") is not none and snap.get("ma20") is not none and snap.get("ma50") is not none %}{{ "%.2f"|format(snap["ma10"]) }} / {{ "%.2f"|format(snap["ma20"]) }} / {{ "%.2f"|format(snap["ma50"]) }}{% else %}N/A{% endif %}</strong></li>
+          <li><span>MA60</span><strong>{% if snap.get("ma60") is not none %}{{ "%.2f"|format(snap["ma60"]) }}{% else %}N/A{% endif %}</strong></li>
+          <li><span>Close</span><strong>{% if snap.get("close") is not none %}{{ "%.2f"|format(snap["close"]) }}{% else %}N/A{% endif %}</strong></li>
+          <li><span>Volume / Volume MA20</span><strong>{% if snap.get("volume") is not none and snap.get("volume_ma20") is not none %}{{ "%.0f"|format(snap["volume"]) }} / {{ "%.0f"|format(snap["volume_ma20"]) }}{% else %}N/A{% endif %}</strong></li>
+        </ul>
+
+        <h4 class="adv-inner-title">Score breakdown</h4>
+        <div class="table-wrapper adv-table-wrap">
+          <table class="buy-breakdown-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Rule</th>
+                <th>Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for category, items in buy_signal["breakdown"].items() %}
+              {% for item in items %}
+              <tr class="breakdown-row breakdown-{{ item['direction'] }}">
+                <td class="bcc-cat">{% if category == "rsi" %}RSI{% elif category == "macd" %}MACD{% else %}{{ category | replace("_", " ") | title }}{% endif %}</td>
+                <td>{{ item['rule'] }}</td>
+                <td class="breakdown-points">{% if item['points'] > 0 %}+{% endif %}{{ item['points'] }}</td>
+              </tr>
+              {% endfor %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="adv-signal-columns">
+          <div>
+            <h4 class="adv-inner-title adv-title-pos">Positive signals</h4>
+            {% if buy_signal["positive_signals"] %}
+            <ul class="adv-signal-list adv-signal-pos">
+              {% for line in buy_signal["positive_signals"] %}
+              <li>{{ line }}</li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <p class="adv-empty">None on the latest bar.</p>
+            {% endif %}
+          </div>
+          <div>
+            <h4 class="adv-inner-title adv-title-neg">Negative signals</h4>
+            {% if buy_signal["negative_signals"] %}
+            <ul class="adv-signal-list adv-signal-neg">
+              {% for line in buy_signal["negative_signals"] %}
+              <li>{{ line }}</li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <p class="adv-empty">None on the latest bar.</p>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <p class="adv-empty">{{ buy_signal.get("error", "Technical detail unavailable.") }}</p>
+        {% endif %}
+      </div>
+    </details>
+
+    <details class="adv-details">
+      <summary class="adv-summary">View AI model details</summary>
+      <div class="adv-body">
+        {% if rf_predictor.get("ok") %}
+        <ul class="adv-meta-list">
+          <li><span>Test accuracy</span><strong>{{ "%.2f%%"|format((rf_predictor.get("test_accuracy") or 0) * 100) }}</strong></li>
+          <li><span>Strong rise accuracy</span><strong>{% if rf_predictor.get("strong_rise_accuracy") is not none %}{{ "%.2f%%"|format(rf_predictor["strong_rise_accuracy"] * 100) }}{% else %}N/A{% endif %}</strong><span class="adv-meta-hint">When the next window was actually up</span></li>
+          <li><span>Sharp drop accuracy</span><strong>{% if rf_predictor.get("sharp_drop_accuracy") is not none %}{{ "%.2f%%"|format(rf_predictor["sharp_drop_accuracy"] * 100) }}{% else %}N/A{% endif %}</strong><span class="adv-meta-hint">When the next window was actually flat/down</span></li>
+          <li><span>Training rows</span><strong>{{ rf_predictor["n_train_rows"] }}</strong></li>
+          <li><span>Testing rows</span><strong>{{ rf_predictor["n_test_rows"] }}</strong></li>
+          <li><span>Target</span><strong class="adv-meta-block">{{ rf_predictor.get("target_definition", "") }}</strong></li>
+        </ul>
+
+        <h4 class="adv-inner-title">Feature importance</h4>
+        <div class="table-wrapper adv-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Importance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rf_predictor["feature_importance"] %}
+              <tr>
+                <td>{{ row.feature }}</td>
+                <td>{% if row.importance is not none %}{{ "%.6f"|format(row.importance) }}{% else %}N/A{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="adv-empty">{{ rf_predictor.get("error", "AI model detail unavailable.") }}</p>
+        {% endif %}
+      </div>
+    </details>
+
+    <details class="adv-details">
+      <summary class="adv-summary">View data quality details</summary>
+      <div class="adv-body">
+        <div class="report-grid report-grid-dashboard report-grid-adv">
+          <div class="report-card quality-summary-card">
+            <h3>Data Quality Score</h3>
+            <div class="metric-value">{{ quality_report.quality_score if quality_report.quality_score is not none else "N/A" }}</div>
+            <div class="quality-badge quality-{{ (quality_report.quality_level or 'Poor') | lower }}">{{ quality_report.quality_level or "Unknown" }}</div>
+            <ul class="report-list">
+              <li>Rows: {{ quality_report.row_count }}</li>
+              <li>Columns: {{ quality_report.column_count }}</li>
+              <li>Status: {{ quality_report.status }}</li>
+            </ul>
+          </div>
+          <div class="report-card">
+            <h3>Data Quality Report</h3>
+            <ul class="report-list">
+              <li>Date Range: {{ quality_report.date_range.start }} to {{ quality_report.date_range.end }}</li>
+              <li>Missing Values: {{ quality_report.missing_values }}</li>
+              <li>Duplicate Dates Removed: {{ quality_report.duplicate_rows_removed }}</li>
+              {% if quality_report.quality_penalties %}
+              <li>Penalties Applied: {{ quality_report.quality_penalties | length }}</li>
+              {% else %}
+              <li>Penalties Applied: 0</li>
+              {% endif %}
+            </ul>
+          </div>
+          <div class="report-card">
+            <h3>Data Quality Checklist</h3>
+            <ul class="report-list quality-checklist">
+              {% for item in quality_report.quality_checklist or [] %}
+              <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="report-card report-card-full">
+            <h3>Column Mapping Report</h3>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Standard Column</th>
+                    <th>Original Column</th>
+                    <th>Mapping Method</th>
+                    <th>Confidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for target, source in mapping_report.items() %}
+                  {% if source is mapping and ("original_column" in source or "mapped_standard_column" in source or "method" in source or "confidence" in source) %}
+                  <tr>
+                    <td>{{ source.mapped_standard_column or target }}</td>
+                    <td>{{ source.original_column if source.original_column else "Not Found" }}</td>
+                    <td>
+                      {% if source.method %}
+                        {{ source.method | replace("_", " ") | title }}
+                      {% else %}
+                        Not Mapped
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if "confidence" in source and source.confidence is not none %}
+                        {% set confidence = source.confidence | float %}
+                        {{ ((confidence * 100) if confidence <= 1 else confidence) | round(1) }}%
+                      {% else %}
+                        N/A
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr>
+                    <td>{{ target }}</td>
+                    <td>{{ source if source else "Not Found" }}</td>
+                    <td>{{ "Exact Alias" if source else "Not Mapped" }}</td>
+                    <td>{{ "100.0%" if source else "N/A" }}</td>
+                  </tr>
+                  {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <h4 class="adv-inner-title">First 10 rows (cleaned)</h4>
+        <div class="table-wrapper adv-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                {% for col in table_columns %}
+                <th>{{ col }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in preview_rows %}
+              <tr>
+                {% for col in table_columns %}
+                <td>{{ row[col] }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  </div>
+</section>
+{% endblock %}

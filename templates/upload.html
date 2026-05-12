@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="section-heading">
+    <h2 class="section-title">Upload Market Dataset</h2>
+    <p class="section-subtitle">
+      Upload a price dataset and QuantInsight Lab will map columns, clean data, generate indicators, and open your analytics workspace.
+    </p>
+  </div>
+
+  <form class="upload-form" action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data">
+    <div class="upload-dropzone" id="uploadDropzone" role="button" tabindex="0" aria-label="Upload file dropzone">
+      <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls">
+      <div class="upload-title">Drag and drop your file here or click to browse</div>
+      <div class="upload-hint">Supported formats: CSV, XLSX, XLS</div>
+      <div class="upload-filename" id="selectedFileName">No file selected</div>
+    </div>
+    <button class="primary-button" type="submit">Upload and Analyze</button>
+  </form>
+
+  <div class="report-card compact-card">
+    <h3>Recommended Workflow</h3>
+    <ul class="report-list">
+      <li>Upload Data</li>
+      <li>Review Market Dashboard</li>
+      <li>Run Strategy Backtests</li>
+      <li>Train ML Models</li>
+      <li>Consolidate findings in Report</li>
+    </ul>
+  </div>
+</section>
+{% endblock %}

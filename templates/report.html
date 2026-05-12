@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="section-heading">
+    <h2 class="section-title">Report</h2>
+    <p class="section-subtitle">A consolidated analysis report based on the currently uploaded dataset.</p>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Dataset Overview</h3>
+  </div>
+  <div class="card-grid">
+    <div class="metric-card"><div class="metric-label">Source File</div><div class="metric-value metric-small">{{ overview.source_file_name }}</div></div>
+    <div class="metric-card"><div class="metric-label">Rows</div><div class="metric-value">{{ overview.total_rows }}</div></div>
+    <div class="metric-card"><div class="metric-label">Date Range</div><div class="metric-value metric-small">{{ overview.date_range }}</div></div>
+    <div class="metric-card"><div class="metric-label">Average Close</div><div class="metric-value">{{ overview.avg_close if overview.avg_close is not none else "N/A" }}</div></div>
+    <div class="metric-card"><div class="metric-label">Max Close</div><div class="metric-value">{{ overview.max_close if overview.max_close is not none else "N/A" }}</div></div>
+    <div class="metric-card"><div class="metric-label">Min Close</div><div class="metric-value">{{ overview.min_close if overview.min_close is not none else "N/A" }}</div></div>
+    <div class="metric-card"><div class="metric-label">Average Volume</div><div class="metric-value">{{ overview.avg_volume if overview.avg_volume is not none else "N/A" }}</div></div>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Data Quality & Column Mapping</h3>
+  </div>
+  <div class="report-grid">
+    <div class="report-card">
+      <h3>Data Quality</h3>
+      <div class="metric-value">{{ quality_report.quality_score if quality_report.quality_score is not none else "N/A" }}</div>
+      <div class="quality-badge quality-{{ (quality_report.quality_level or 'Poor') | lower }}">{{ quality_report.quality_level or "Unknown" }}</div>
+    </div>
+    <div class="report-card">
+      <h3>Quality Checklist</h3>
+      <ul class="report-list quality-checklist">
+        {% for item in quality_report.quality_checklist or [] %}
+        <li>{{ item }}</li>
+        {% else %}
+        <li>No quality checklist is available.</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    {% set mapping_report = session.get("mapping_report", {}) %}
+    <div class="report-card report-card-full">
+      <h3>Column Mapping Report</h3>
+      {% if mapping_report %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Standard Column</th>
+              <th>Original Column</th>
+              <th>Mapping Method</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for target, source in mapping_report.items() %}
+            {% if source is mapping and ("original_column" in source or "mapped_standard_column" in source or "method" in source or "confidence" in source) %}
+            <tr>
+              <td>{{ source.mapped_standard_column or target }}</td>
+              <td>{{ source.original_column if source.original_column else "Not Found" }}</td>
+              <td>{{ source.method | replace("_", " ") | title if source.method else "Not Mapped" }}</td>
+              <td>
+                {% if "confidence" in source and source.confidence is not none %}
+                  {% set confidence = source.confidence | float %}
+                  {{ ((confidence * 100) if confidence <= 1 else confidence) | round(1) }}%
+                {% else %}
+                  N/A
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td>{{ target }}</td>
+              <td>{{ source if source else "Not Found" }}</td>
+              <td>{{ "Exact Alias" if source else "Not Mapped" }}</td>
+              <td>{{ "100.0%" if source else "N/A" }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="section-subtitle">No column mapping report is available.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Market Visualization</h3>
+  </div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>Close Price Chart</h3>
+      {{ charts.close | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Volume Chart</h3>
+      {{ charts.volume | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Moving Average Chart</h3>
+      {{ charts.ma | safe }}
+    </div>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Strategy Analysis</h3>
+  </div>
+  {% if strategy_result %}
+  <div class="card-grid">
+    <div class="metric-card"><div class="metric-label">Selected Strategy</div><div class="metric-value metric-small">{{ strategy_result.selected_strategy }}</div></div>
+    <div class="metric-card"><div class="metric-label">Total Return</div><div class="metric-value">{{ strategy_result.metrics.total_return }}</div></div>
+    <div class="metric-card"><div class="metric-label">Sharpe Ratio</div><div class="metric-value">{{ strategy_result.metrics.sharpe_ratio }}</div></div>
+    <div class="metric-card"><div class="metric-label">Max Drawdown</div><div class="metric-value">{{ strategy_result.metrics.max_drawdown }}</div></div>
+    <div class="metric-card"><div class="metric-label">Win Rate</div><div class="metric-value">{{ strategy_result.metrics.win_rate }}</div></div>
+    <div class="metric-card"><div class="metric-label">Number of Trades</div><div class="metric-value">{{ strategy_result.metrics.number_of_trades }}</div></div>
+  </div>
+  {% else %}
+  <div class="report-card">
+    <p class="section-subtitle">No strategy backtest has been run yet.</p>
+  </div>
+  {% endif %}
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Strategy Comparison</h3>
+  </div>
+  {% if strategy_comparison_result %}
+  {% if strategy_comparison_result.warning_message %}
+  <section class="flash-wrapper">
+    <div class="flash-message flash-error">{{ strategy_comparison_result.warning_message }}</div>
+  </section>
+  {% endif %}
+  <div class="card-grid">
+    <div class="metric-card"><div class="metric-label">Best by Sharpe Ratio</div><div class="metric-value metric-small">{{ strategy_comparison_result.best_summary.best_sharpe }}</div></div>
+    <div class="metric-card"><div class="metric-label">Best by Total Return</div><div class="metric-value metric-small">{{ strategy_comparison_result.best_summary.best_return }}</div></div>
+    <div class="metric-card"><div class="metric-label">Lowest Max Drawdown</div><div class="metric-value metric-small">{{ strategy_comparison_result.best_summary.lowest_drawdown }}</div></div>
+  </div>
+  <div class="table-card">
+    <h3>Strategy Comparison Table</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Strategy</th>
+            <th>Total Return</th>
+            <th>Annualized Return</th>
+            <th>Annualized Volatility</th>
+            <th>Sharpe Ratio</th>
+            <th>Max Drawdown</th>
+            <th>Win Rate</th>
+            <th>Trades</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in strategy_comparison_result.rows %}
+          <tr>
+            <td>{{ row.strategy }}</td>
+            <td>{{ row.total_return }}</td>
+            <td>{{ row.annualized_return }}</td>
+            <td>{{ row.annualized_volatility }}</td>
+            <td>{{ row.sharpe_ratio }}</td>
+            <td>{{ row.max_drawdown }}</td>
+            <td>{{ row.win_rate }}</td>
+            <td>{{ row.number_of_trades }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if strategy_comparison_chart %}
+  <div class="chart-card">
+    <h3>Strategy Comparison Equity Chart</h3>
+    {{ strategy_comparison_chart | safe }}
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="report-card">
+    <p class="section-subtitle">No strategy comparison has been run yet.</p>
+  </div>
+  {% endif %}
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Machine Learning Analysis</h3>
+  </div>
+  {% if ml_result %}
+  <div class="card-grid">
+    <div class="metric-card"><div class="metric-label">Selected Model</div><div class="metric-value metric-small">{{ ml_result.selected_model }}</div></div>
+    <div class="metric-card"><div class="metric-label">Accuracy</div><div class="metric-value">{{ ml_result.metrics.accuracy }}</div></div>
+    <div class="metric-card"><div class="metric-label">Precision</div><div class="metric-value">{{ ml_result.metrics.precision }}</div></div>
+    <div class="metric-card"><div class="metric-label">Recall</div><div class="metric-value">{{ ml_result.metrics.recall }}</div></div>
+    <div class="metric-card"><div class="metric-label">F1-score</div><div class="metric-value">{{ ml_result.metrics.f1_score }}</div></div>
+    <div class="metric-card"><div class="metric-label">Train Rows</div><div class="metric-value">{{ ml_result.train_size }}</div></div>
+    <div class="metric-card"><div class="metric-label">Test Rows</div><div class="metric-value">{{ ml_result.test_size }}</div></div>
+    <div class="metric-card"><div class="metric-label">Target Down</div><div class="metric-value">{{ ml_result.target_distribution.down }}</div></div>
+    <div class="metric-card"><div class="metric-label">Target Up</div><div class="metric-value">{{ ml_result.target_distribution.up }}</div></div>
+  </div>
+  {% if ml_result.warnings %}
+  <section class="flash-wrapper">
+    {% for warning in ml_result.warnings %}
+    <div class="flash-message flash-error">{{ warning }}</div>
+    {% endfor %}
+  </section>
+  {% endif %}
+  {% else %}
+  <div class="report-card">
+    <p class="section-subtitle">No ML model has been trained yet.</p>
+  </div>
+  {% endif %}
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">ML Model Comparison</h3>
+  </div>
+  {% if ml_comparison_result %}
+  {% if ml_comparison_result.small_dataset_warning %}
+  <section class="flash-wrapper">
+    <div class="flash-message flash-error">Dataset has fewer than 30 rows. Model comparison may be unreliable.</div>
+  </section>
+  {% endif %}
+  {% if ml_comparison_result.warnings %}
+  <section class="flash-wrapper">
+    {% for warning in ml_comparison_result.warnings %}
+    <div class="flash-message flash-error">{{ warning }}</div>
+    {% endfor %}
+  </section>
+  {% endif %}
+  <div class="card-grid">
+    <div class="metric-card"><div class="metric-label">Best by F1-score</div><div class="metric-value metric-small">{{ ml_comparison_result.best_model_summary.best_f1 }}</div></div>
+    <div class="metric-card"><div class="metric-label">Best by Accuracy</div><div class="metric-value metric-small">{{ ml_comparison_result.best_model_summary.best_accuracy }}</div></div>
+  </div>
+  <div class="table-card">
+    <h3>ML Model Comparison Table</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Status</th>
+            <th>Accuracy</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>F1-score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in ml_comparison_result.rows %}
+          <tr>
+            <td>{{ row.model }}</td>
+            <td>{{ row.status }}</td>
+            <td>{{ row.accuracy }}</td>
+            <td>{{ row.precision }}</td>
+            <td>{{ row.recall }}</td>
+            <td>{{ row.f1_score }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if ml_comparison_chart %}
+  <div class="chart-card">
+    <h3>ML Model Comparison Chart</h3>
+    {{ ml_comparison_chart | safe }}
+  </div>
+  {% endif %}
+  {% set best_acc_model = ml_comparison_result.best_model_summary.best_accuracy %}
+  {% set best_f1_model = ml_comparison_result.best_model_summary.best_f1 %}
+  {% set ns = namespace(acc_score='N/A', f1_score='N/A') %}
+  {% for row in ml_comparison_result.rows %}
+    {% if row.model == best_acc_model %}
+      {% set ns.acc_score = row.accuracy %}
+    {% endif %}
+    {% if row.model == best_f1_model %}
+      {% set ns.f1_score = row.f1_score %}
+    {% endif %}
+  {% endfor %}
+  <div class="report-card">
+    <h3>Model Comparison Interpretation</h3>
+    <ul class="report-list">
+      <li>Best by Accuracy means the model has the highest overall correct prediction rate.</li>
+      <li>Best by F1-score means the model has the best balance between precision and recall.</li>
+      <li>The best model by accuracy is {{ best_acc_model }} with accuracy {{ ns.acc_score }}.</li>
+      <li>The best model by F1-score is {{ best_f1_model }} with F1-score {{ ns.f1_score }}.</li>
+      <li>Accuracy near 50% in financial direction prediction is close to random guessing.</li>
+      <li>This is common because short-term market movement is noisy and difficult to predict.</li>
+      <li>Results should be treated as educational and exploratory, not financial advice.</li>
+    </ul>
+  </div>
+  {% else %}
+  <div class="report-card">
+    <p class="section-subtitle">No ML model comparison has been run yet.</p>
+  </div>
+  {% endif %}
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Key Notes</h3>
+  </div>
+  <div class="report-card">
+    <ul class="report-list">
+      <li>Results are based on the uploaded historical dataset currently stored in this session.</li>
+      <li>Backtest and ML results do not guarantee future market performance.</li>
+      <li>Comparison summaries only appear when they were run for the current dataset.</li>
+    </ul>
+  </div>
+</section>
+{% endblock %}

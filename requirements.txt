@@ -1,0 +1,10 @@
+Flask
+pandas
+numpy
+matplotlib
+scikit-learn
+yfinance
+gunicorn
+plotly
+openpyxl
+xlrd

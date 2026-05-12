@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="section-heading">
+    <h2 class="section-title">Strategy Comparison Overview</h2>
+    <p class="section-subtitle">Compare Moving Average, RSI, and MACD strategies on the current dataset using default parameters.</p>
+  </div>
+
+  {% if warning_message %}
+  <section class="flash-wrapper">
+    <div class="flash-message flash-error">{{ warning_message }}</div>
+  </section>
+  {% endif %}
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Best Strategy Summary</h3>
+  </div>
+  <div class="card-grid">
+    <div class="metric-card">
+      <div class="metric-label">Best by Sharpe Ratio</div>
+      <div class="metric-value metric-small">{{ best_summary.best_sharpe }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Best by Total Return</div>
+      <div class="metric-value metric-small">{{ best_summary.best_return }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Lowest Max Drawdown</div>
+      <div class="metric-value metric-small">{{ best_summary.lowest_drawdown }}</div>
+    </div>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Comparison Table</h3>
+  </div>
+  <div class="table-card">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Strategy</th>
+            <th>Total Return</th>
+            <th>Annualized Return</th>
+            <th>Annualized Volatility</th>
+            <th>Sharpe Ratio</th>
+            <th>Max Drawdown</th>
+            <th>Win Rate</th>
+            <th>Number of Trades</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in comparison_rows %}
+          <tr>
+            <td>{{ row.strategy }}</td>
+            <td>{{ row.total_return }}</td>
+            <td>{{ row.annualized_return }}</td>
+            <td>{{ row.annualized_volatility }}</td>
+            <td>{{ row.sharpe_ratio }}</td>
+            <td>{{ row.max_drawdown }}</td>
+            <td>{{ row.win_rate }}</td>
+            <td>{{ row.number_of_trades }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Equity Comparison Chart</h3>
+  </div>
+  <div class="chart-card">
+    {{ equity_chart | safe }}
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Metrics Comparison Chart</h3>
+  </div>
+  <div class="chart-card">
+    {{ metrics_chart | safe }}
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Notes</h3>
+  </div>
+  <div class="report-card">
+    <ul class="report-list">
+      <li>All strategies use default parameters for consistent comparison.</li>
+      <li>Metrics shown as N/A indicate unavailable or non-finite values.</li>
+      <li>Backtest outputs are for research use and are not financial advice.</li>
+    </ul>
+  </div>
+</section>
+{% endblock %}

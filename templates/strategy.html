@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="section-heading">
+    <h2 class="section-title">Strategy Lab</h2>
+    <p class="section-subtitle">Select a strategy, tune parameters, and run a robust backtest on the latest cleaned dataset.</p>
+  </div>
+
+  <form class="upload-form" action="{{ url_for('strategy_lab') }}" method="POST">
+    <div class="section-heading section-heading-tight">
+      <h3 class="section-title">Backtest Configuration</h3>
+    </div>
+    <div class="strategy-form-grid">
+      <div class="strategy-form-card">
+        <label class="form-label" for="strategy_name">Strategy</label>
+        <select id="strategy_name" name="strategy_name" class="form-input">
+          <option value="ma_crossover" {% if selected_strategy == "ma_crossover" %}selected{% endif %}>Moving Average Crossover</option>
+          <option value="rsi" {% if selected_strategy == "rsi" %}selected{% endif %}>RSI Strategy</option>
+          <option value="macd" {% if selected_strategy == "macd" %}selected{% endif %}>MACD Strategy</option>
+        </select>
+      </div>
+      <div class="strategy-form-card">
+        <label class="form-label" for="initial_capital">Initial Capital</label>
+        <input id="initial_capital" name="initial_capital" class="form-input" type="number" min="1" step="100" value="{{ params.initial_capital }}">
+      </div>
+      <div class="strategy-form-card">
+        <label class="form-label" for="transaction_cost">Transaction Cost</label>
+        <input id="transaction_cost" name="transaction_cost" class="form-input" type="number" min="0" step="0.0001" value="{{ params.transaction_cost }}">
+      </div>
+
+      <div class="strategy-form-card" data-strategy-params="ma_crossover">
+        <label class="form-label" for="short_window">MA Short Window</label>
+        <input id="short_window" name="short_window" class="form-input" type="number" min="1" value="{{ params.short_window }}">
+      </div>
+      <div class="strategy-form-card" data-strategy-params="ma_crossover">
+        <label class="form-label" for="long_window">MA Long Window</label>
+        <input id="long_window" name="long_window" class="form-input" type="number" min="2" value="{{ params.long_window }}">
+      </div>
+
+      <div class="strategy-form-card" data-strategy-params="rsi">
+        <label class="form-label" for="rsi_period">RSI Period</label>
+        <input id="rsi_period" name="rsi_period" class="form-input" type="number" min="2" value="{{ params.rsi_period }}">
+      </div>
+      <div class="strategy-form-card" data-strategy-params="rsi">
+        <label class="form-label" for="oversold_threshold">Oversold Threshold</label>
+        <input id="oversold_threshold" name="oversold_threshold" class="form-input" type="number" min="1" max="99" value="{{ params.oversold_threshold }}">
+      </div>
+      <div class="strategy-form-card" data-strategy-params="rsi">
+        <label class="form-label" for="overbought_threshold">Overbought Threshold</label>
+        <input id="overbought_threshold" name="overbought_threshold" class="form-input" type="number" min="1" max="99" value="{{ params.overbought_threshold }}">
+      </div>
+
+      <div class="strategy-form-card" data-strategy-params="macd">
+        <label class="form-label" for="fast_period">MACD Fast Period</label>
+        <input id="fast_period" name="fast_period" class="form-input" type="number" min="1" value="{{ params.fast_period }}">
+      </div>
+      <div class="strategy-form-card" data-strategy-params="macd">
+        <label class="form-label" for="slow_period">MACD Slow Period</label>
+        <input id="slow_period" name="slow_period" class="form-input" type="number" min="2" value="{{ params.slow_period }}">
+      </div>
+      <div class="strategy-form-card" data-strategy-params="macd">
+        <label class="form-label" for="signal_period">MACD Signal Period</label>
+        <input id="signal_period" name="signal_period" class="form-input" type="number" min="1" value="{{ params.signal_period }}">
+      </div>
+    </div>
+    <button class="primary-button" type="submit">Run Backtest</button>
+  </form>
+</section>
+
+{% if metrics %}
+<section class="panel strategy-results-panel">
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Performance Metrics</h3>
+  </div>
+  <div class="card-grid">
+    <div class="metric-card"><div class="metric-label">Total Return</div><div class="metric-value">{{ metrics.total_return }}</div></div>
+    <div class="metric-card"><div class="metric-label">Annualized Return</div><div class="metric-value">{{ metrics.annualized_return }}</div></div>
+    <div class="metric-card"><div class="metric-label">Annualized Volatility</div><div class="metric-value">{{ metrics.annualized_volatility }}</div></div>
+    <div class="metric-card"><div class="metric-label">Sharpe Ratio</div><div class="metric-value">{{ metrics.sharpe_ratio }}</div></div>
+    <div class="metric-card"><div class="metric-label">Max Drawdown</div><div class="metric-value">{{ metrics.max_drawdown }}</div></div>
+    <div class="metric-card"><div class="metric-label">Win Rate</div><div class="metric-value">{{ metrics.win_rate }}</div></div>
+    <div class="metric-card"><div class="metric-label">Number of Trades</div><div class="metric-value">{{ metrics.number_of_trades }}</div></div>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Backtest Charts</h3>
+  </div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>Price with Buy/Sell Signals</h3>
+      {{ charts.signals | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Strategy Equity Curve</h3>
+      {{ charts.equity | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Drawdown Curve</h3>
+      {{ charts.drawdown | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Strategy vs Market Equity</h3>
+      {{ charts.comparison | safe }}
+    </div>
+  </div>
+
+  <div class="table-card">
+    <h3>Backtest Result Preview (Latest 20 Rows)</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            {% for col in table_columns %}
+            <th>{{ col }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in preview_rows %}
+          <tr>
+            {% for col in table_columns %}
+            <td>{{ row[col] }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

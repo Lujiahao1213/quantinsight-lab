@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuantInsight Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="layout-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">QI</div>
+        <div>
+          <div class="brand-title">QuantInsight Lab</div>
+          <div class="brand-subtitle">Fintech Analytics</div>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a class="{% if request.endpoint == 'upload' %}active{% endif %}" href="{{ url_for('upload') }}"><span>⬆</span> Upload Data</a>
+        <a class="{% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span>▦</span> Market Dashboard</a>
+        <a class="{% if request.endpoint == 'strategy_lab' %}active{% endif %}" href="{{ url_for('strategy_lab') }}"><span>↔</span> Strategy Lab</a>
+        <a class="{% if request.endpoint == 'strategy_comparison' %}active{% endif %}" href="{{ url_for('strategy_comparison') }}"><span>≋</span> Strategy Comparison</a>
+        <a class="{% if request.endpoint == 'ml_analysis' %}active{% endif %}" href="{{ url_for('ml_analysis') }}"><span>◎</span> ML Analysis</a>
+        <a class="{% if request.endpoint == 'report' %}active{% endif %}" href="{{ url_for('report') }}"><span>▣</span> Report</a>
+      </nav>
+      <p class="sidebar-note">Upload, inspect, backtest, model, and consolidate market analysis in one workflow.</p>
+    </aside>
+    <main class="main-content">
+      <section class="status-bar">
+        {% if session.get("processed_file") %}
+          <div>
+            <div class="status-label">Dataset loaded</div>
+            <div class="status-value">{{ session.get("source_file_name", "Uploaded dataset") }}</div>
+          </div>
+          <div>
+            <div class="status-label">Rows</div>
+            <div class="status-value">{{ session.get("quality_report", {}).get("row_count", "N/A") }}</div>
+          </div>
+          <div>
+            <div class="status-label">Date range</div>
+            <div class="status-value">
+              {% set date_range = session.get("quality_report", {}).get("date_range", {}) %}
+              {{ date_range.get("start", "N/A") }} to {{ date_range.get("end", "N/A") }}
+            </div>
+          </div>
+        {% else %}
+          <div>
+            <div class="status-label">Session status</div>
+            <div class="status-value">No dataset loaded</div>
+          </div>
+        {% endif %}
+      </section>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <section class="flash-wrapper">
+            {% for category, message in messages %}
+              <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </section>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

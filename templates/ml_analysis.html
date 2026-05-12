@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel ml-command-page">
+  <header class="ml-command-header">
+    <h2 class="ml-command-title">ML Command Center</h2>
+    <p class="ml-command-subtitle">Workflow-first analysis · <span class="ml-command-dataset">{{ source_file_name }}</span></p>
+  </header>
+
+  <p class="ml-command-disclaimer">
+    All outputs are for research and education only — not financial advice.
+  </p>
+
+  <div class="ml-workflow-grid">
+    <form class="ml-workflow-card ml-workflow-card--rf" action="{{ url_for('ml_analysis') }}" method="POST">
+      <input type="hidden" name="ml_action" value="rf_predictor">
+      <div class="ml-workflow-icon" aria-hidden="true">◎</div>
+      <h3 class="ml-workflow-name">AI Direction Predictor</h3>
+      <p class="ml-workflow-desc">
+        Random Forest: probability of a higher close five trading sessions ahead, with test metrics and feature importance.
+      </p>
+      <button type="submit" class="ml-workflow-btn">Run direction scan</button>
+    </form>
+
+    <form class="ml-workflow-card ml-workflow-card--compare" action="{{ url_for('ml_analysis') }}" method="POST">
+      <input type="hidden" name="ml_action" value="compare_all">
+      <div class="ml-workflow-icon" aria-hidden="true">≋</div>
+      <h3 class="ml-workflow-name">Compare All Models</h3>
+      <p class="ml-workflow-desc">
+        Benchmark every supported classifier with safe default parameters on the same chronological split.
+      </p>
+      <button type="submit" class="ml-workflow-btn ml-workflow-btn--secondary">Run full comparison</button>
+    </form>
+
+    <div class="ml-workflow-card ml-workflow-card--train">
+      <div class="ml-workflow-icon" aria-hidden="true">▣</div>
+      <h3 class="ml-workflow-name">Train Single Model</h3>
+      <p class="ml-workflow-desc">
+        Pick one model, tune parameters, and train on the prepared dataset (next-day direction task).
+      </p>
+      <button type="button" class="ml-workflow-btn ml-workflow-btn--outline" id="mlOpenTrainPanel">
+        Configure &amp; train
+      </button>
+    </div>
+  </div>
+
+  <div class="ml-train-drawer" id="mlTrainDrawer" hidden>
+    <div class="ml-train-drawer-inner">
+      <div class="ml-train-drawer-head">
+        <h3 class="ml-train-drawer-title">Single model training</h3>
+        <button type="button" class="ml-train-close" id="mlCloseTrainPanel" aria-label="Close training panel">×</button>
+      </div>
+      <form class="upload-form ml-train-form" action="{{ url_for('ml_analysis') }}" method="POST">
+        <input type="hidden" name="ml_action" value="train_single">
+
+        <div class="strategy-form-grid">
+          <div class="strategy-form-card">
+            <label class="form-label" for="model_name">Model</label>
+            <select id="model_name" name="model_name" class="form-input">
+              {% for model_id, model_label in available_models.items() %}
+              <option value="{{ model_id }}" {% if selected_model == model_id %}selected{% endif %}>{{ model_label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="strategy-form-grid">
+          <div class="strategy-form-card ml-param-card" data-model-params="logistic_regression">
+            <h3>Logistic Regression</h3>
+            <label class="form-label" for="lr_C">C</label>
+            <input id="lr_C" name="lr_C" class="form-input" type="number" min="0.0001" step="0.1" value="{{ params.C if selected_model == 'logistic_regression' else default_params.logistic_regression.C }}">
+            <label class="form-label" for="lr_max_iter">Max Iter</label>
+            <input id="lr_max_iter" name="lr_max_iter" class="form-input" type="number" min="1" step="100" value="{{ params.max_iter if selected_model == 'logistic_regression' else default_params.logistic_regression.max_iter }}">
+          </div>
+
+          <div class="strategy-form-card ml-param-card" data-model-params="decision_tree">
+            <h3>Decision Tree</h3>
+            <label class="form-label" for="dt_max_depth">Max Depth</label>
+            <input id="dt_max_depth" name="dt_max_depth" class="form-input" type="number" min="1" value="{{ params.max_depth if selected_model == 'decision_tree' else default_params.decision_tree.max_depth }}">
+            <label class="form-label" for="dt_min_samples_split">Min Samples Split</label>
+            <input id="dt_min_samples_split" name="dt_min_samples_split" class="form-input" type="number" min="2" value="{{ params.min_samples_split if selected_model == 'decision_tree' else default_params.decision_tree.min_samples_split }}">
+          </div>
+
+          <div class="strategy-form-card ml-param-card" data-model-params="random_forest">
+            <h3>Random Forest</h3>
+            <label class="form-label" for="rf_n_estimators">N Estimators</label>
+            <input id="rf_n_estimators" name="rf_n_estimators" class="form-input" type="number" min="1" step="10" value="{{ params.n_estimators if selected_model == 'random_forest' else default_params.random_forest.n_estimators }}">
+            <label class="form-label" for="rf_max_depth">Max Depth</label>
+            <input id="rf_max_depth" name="rf_max_depth" class="form-input" type="number" min="1" value="{{ params.max_depth if selected_model == 'random_forest' else default_params.random_forest.max_depth }}">
+          </div>
+
+          <div class="strategy-form-card ml-param-card" data-model-params="svm">
+            <h3>SVM</h3>
+            <label class="form-label" for="svm_C">C</label>
+            <input id="svm_C" name="svm_C" class="form-input" type="number" min="0.0001" step="0.1" value="{{ params.C if selected_model == 'svm' else default_params.svm.C }}">
+            <label class="form-label" for="svm_kernel">Kernel</label>
+            <select id="svm_kernel" name="svm_kernel" class="form-input">
+              {% set svm_kernel = params.kernel if selected_model == 'svm' else default_params.svm.kernel %}
+              {% for kernel in ["rbf", "linear", "poly", "sigmoid"] %}
+              <option value="{{ kernel }}" {% if svm_kernel == kernel %}selected{% endif %}>{{ kernel }}</option>
+              {% endfor %}
+            </select>
+            <label class="form-label" for="svm_gamma">Gamma</label>
+            <select id="svm_gamma" name="svm_gamma" class="form-input">
+              {% set svm_gamma = params.gamma if selected_model == 'svm' else default_params.svm.gamma %}
+              {% for gamma in ["scale", "auto"] %}
+              <option value="{{ gamma }}" {% if svm_gamma == gamma %}selected{% endif %}>{{ gamma }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="strategy-form-card ml-param-card" data-model-params="knn">
+            <h3>KNN</h3>
+            <label class="form-label" for="knn_n_neighbors">N Neighbors</label>
+            <input id="knn_n_neighbors" name="knn_n_neighbors" class="form-input" type="number" min="1" value="{{ params.n_neighbors if selected_model == 'knn' else default_params.knn.n_neighbors }}">
+            <label class="form-label" for="knn_weights">Weights</label>
+            <select id="knn_weights" name="knn_weights" class="form-input">
+              {% set knn_weights = params.weights if selected_model == 'knn' else default_params.knn.weights %}
+              {% for weights in ["uniform", "distance"] %}
+              <option value="{{ weights }}" {% if knn_weights == weights %}selected{% endif %}>{{ weights }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="primary-button" type="submit">Train selected model</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if rf_predictor %}
+  <section class="ml-output-panel ml-output-panel--rf">
+    <h3 class="ml-output-title">Direction predictor output</h3>
+    <div class="ml-rf-command">
+      <div class="ml-rf-command-header">
+        <p class="ml-rf-command-lead">
+          Five-session forward direction ·
+          {% if rf_predictor.get("as_of_date") %}Latest bar: {{ rf_predictor["as_of_date"] }}.{% endif %}
+        </p>
+      </div>
+      <p class="ml-rf-disclaimer">
+        Model output is not a guarantee of future prices and is not personalized investment advice.
+      </p>
+      {% if not rf_predictor.get("ok") %}
+      <div class="ml-rf-error">{{ rf_predictor.get("error", "Predictor could not run on this dataset.") }}</div>
+      {% else %}
+      <div class="ml-rf-cards">
+        <div class="report-card ml-rf-card">
+          <h3>AI prediction</h3>
+          <p class="ml-rf-target-hint">{{ rf_predictor.get("target_definition", "") }}</p>
+          <div class="ml-rf-prediction-badge {% if rf_predictor['prediction_latest'] == 1 %}ml-rf-up{% else %}ml-rf-down{% endif %}">
+            {% if rf_predictor['prediction_latest'] == 1 %}
+              Model leans <strong>Up</strong> (higher close vs. today within {{ rf_predictor.get("forward_days", 5) }} sessions)
+            {% else %}
+              Model leans <strong>Down</strong> (not higher vs. today within {{ rf_predictor.get("forward_days", 5) }} sessions)
+            {% endif %}
+          </div>
+        </div>
+        <div class="report-card ml-rf-card">
+          <h3>Probabilities</h3>
+          <ul class="ml-rf-metric-list">
+            <li><span class="ml-rf-metric-label">Up probability</span><span class="ml-rf-metric-value">{{ "%.2f%%"|format((rf_predictor["probability_up"] or 0) * 100) }}</span></li>
+            <li><span class="ml-rf-metric-label">Down probability</span><span class="ml-rf-metric-value">{{ "%.2f%%"|format((rf_predictor["probability_down"] or 0) * 100) }}</span></li>
+            <li><span class="ml-rf-metric-label">Test accuracy</span><span class="ml-rf-metric-value">{{ "%.2f%%"|format((rf_predictor["test_accuracy"] or 0) * 100) }}</span></li>
+            <li><span class="ml-rf-metric-label">Train / test rows</span><span class="ml-rf-metric-value">{{ rf_predictor["n_train_rows"] }} / {{ rf_predictor["n_test_rows"] }}</span></li>
+          </ul>
+        </div>
+        <div class="report-card ml-rf-card">
+          <h3>Recommendation</h3>
+          <div class="ml-rec-badge ml-rec-{{ rf_predictor['recommendation'] | lower | replace(' ', '-') }}">
+            {{ rf_predictor["recommendation"] }}
+          </div>
+          <p class="ml-rf-rec-hint">From Up probability thresholds (0.65 / 0.55 / 0.45).</p>
+        </div>
+      </div>
+      <div class="table-card ml-rf-fi-table">
+        <h3>Feature importance</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Importance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rf_predictor.feature_importance %}
+              <tr>
+                <td>{{ row.feature }}</td>
+                <td>{% if row.importance is not none %}{{ "%.6f"|format(row.importance) }}{% else %}N/A{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+{% if result %}
+<section class="strategy-results-panel ml-output-panel ml-result-surface">
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Model Performance</h3>
+  </div>
+  <p class="section-subtitle">Train rows: {{ result.train_size }} | Test rows: {{ result.test_size }}</p>
+
+  <div class="report-grid">
+    <div class="report-card">
+      <h3>Target Distribution</h3>
+      <ul class="report-list">
+        <li>Prepared Samples - Down: {{ result.target_distribution.down }}</li>
+        <li>Prepared Samples - Up: {{ result.target_distribution.up }}</li>
+        <li>Train Rows: {{ result.train_size }}</li>
+        <li>Test Rows: {{ result.test_size }}</li>
+      </ul>
+    </div>
+    <div class="report-card">
+      <h3>Test Set Distribution</h3>
+      <ul class="report-list">
+        <li>Actual Down: {{ result.test_distribution.down }}</li>
+        <li>Actual Up: {{ result.test_distribution.up }}</li>
+        <li>Predicted Down: {{ result.prediction_distribution.down }}</li>
+        <li>Predicted Up: {{ result.prediction_distribution.up }}</li>
+      </ul>
+    </div>
+  </div>
+
+  {% if result.warnings %}
+  <section class="flash-wrapper">
+    {% for warning in result.warnings %}
+    <div class="flash-message flash-error">{{ warning }}</div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <div class="card-grid">
+    <div class="metric-card"><div class="metric-label">Accuracy</div><div class="metric-value">{{ result.metrics.accuracy }}</div></div>
+    <div class="metric-card"><div class="metric-label">Precision</div><div class="metric-value">{{ result.metrics.precision }}</div></div>
+    <div class="metric-card"><div class="metric-label">Recall</div><div class="metric-value">{{ result.metrics.recall }}</div></div>
+    <div class="metric-card"><div class="metric-label">F1-score</div><div class="metric-value">{{ result.metrics.f1_score }}</div></div>
+  </div>
+  <div class="report-card">
+    <p class="section-subtitle">Financial direction prediction is difficult. High scores on small or artificial datasets do not guarantee real market performance.</p>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Model Charts</h3>
+  </div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>Confusion Matrix Heatmap</h3>
+      {{ result.charts.confusion_matrix | safe }}
+    </div>
+    <div class="chart-card">
+      <h3>Model Metrics Bar Chart</h3>
+      {{ result.charts.metrics | safe }}
+    </div>
+    {% if result.charts.feature_importance %}
+    <div class="chart-card">
+      <h3>Feature Importance Bar Chart</h3>
+      {{ result.charts.feature_importance | safe }}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="table-card">
+    <h3>Prediction Table Preview</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            {% for col in result.table_columns %}
+            <th>{{ col }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in result.preview_rows %}
+          <tr>
+            {% for col in result.table_columns %}
+            <td>{{ row[col] }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if comparison_result %}
+<section class="strategy-results-panel ml-output-panel ml-result-surface">
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Model Comparison</h3>
+  </div>
+
+  {% if comparison_result.small_dataset_warning %}
+  <section class="flash-wrapper">
+    <div class="flash-message flash-error">Dataset has fewer than 30 rows. Model comparison may be unreliable.</div>
+  </section>
+  {% endif %}
+
+  {% if comparison_result.warnings %}
+  <section class="flash-wrapper">
+    {% for warning in comparison_result.warnings %}
+    <div class="flash-message flash-error">{{ warning }}</div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Best Model Summary</h3>
+  </div>
+  <div class="card-grid">
+    <div class="metric-card"><div class="metric-label">Best by F1-score</div><div class="metric-value metric-small">{{ comparison_result.best_model_summary.best_f1 }}</div></div>
+    <div class="metric-card"><div class="metric-label">Best by Accuracy</div><div class="metric-value metric-small">{{ comparison_result.best_model_summary.best_accuracy }}</div></div>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Model Comparison Table</h3>
+  </div>
+  <div class="table-card">
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Status</th>
+            <th>Accuracy</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>F1-score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in comparison_result.rows %}
+          <tr>
+            <td>{{ row.model }}</td>
+            <td>{{ row.status }}</td>
+            <td>{{ row.accuracy }}</td>
+            <td>{{ row.precision }}</td>
+            <td>{{ row.recall }}</td>
+            <td>{{ row.f1_score }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-heading section-heading-tight">
+    <h3 class="section-title">Model Comparison Bar Chart</h3>
+  </div>
+  <div class="chart-card">
+    {{ comparison_result.chart | safe }}
+  </div>
+
+  {% set best_acc_model = comparison_result.best_model_summary.best_accuracy %}
+  {% set best_f1_model = comparison_result.best_model_summary.best_f1 %}
+  {% set ns = namespace(acc_score='N/A', f1_score='N/A') %}
+  {% for row in comparison_result.rows %}
+    {% if row.model == best_acc_model %}
+      {% set ns.acc_score = row.accuracy %}
+    {% endif %}
+    {% if row.model == best_f1_model %}
+      {% set ns.f1_score = row.f1_score %}
+    {% endif %}
+  {% endfor %}
+  <div class="report-card">
+    <h3>Model Comparison Interpretation</h3>
+    <ul class="report-list">
+      <li>Best by Accuracy means the model has the highest overall correct prediction rate.</li>
+      <li>Best by F1-score means the model has the best balance between precision and recall.</li>
+      <li>The best model by accuracy is {{ best_acc_model }} with accuracy {{ ns.acc_score }}.</li>
+      <li>The best model by F1-score is {{ best_f1_model }} with F1-score {{ ns.f1_score }}.</li>
+      <li>Accuracy near 50% in financial direction prediction is close to random guessing.</li>
+      <li>This is common because short-term market movement is noisy and difficult to predict.</li>
+      <li>Results should be treated as educational and exploratory, not financial advice.</li>
+    </ul>
+  </div>
+
+  <div class="report-card">
+    <ul class="report-list">
+      <li>All models are compared with default safe parameters.</li>
+      <li>Financial direction prediction can be unstable on small or noisy datasets.</li>
+      <li>Failed models are marked as N/A and do not stop the full comparison.</li>
+    </ul>
+  </div>
+</section>
+{% endif %}
+
+  <details class="adv-details ml-meta-details">
+    <summary class="adv-summary">Dataset &amp; feature reference</summary>
+    <div class="adv-body">
+      <div class="report-grid">
+        <div class="report-card">
+          <h3>Available Features</h3>
+          <ul class="report-list">
+            {% for feature in available_features %}
+            <li>{{ feature }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="report-card">
+          <h3>Supported Models</h3>
+          <ul class="report-list">
+            {% for model_id, model_label in available_models.items() %}
+            <li>{{ model_label }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </details>
+</section>
+
+<script>
+  const modelSelect = document.getElementById("model_name");
+  const parameterCards = document.querySelectorAll("[data-model-params]");
+  const trainDrawer = document.getElementById("mlTrainDrawer");
+  const openTrainBtn = document.getElementById("mlOpenTrainPanel");
+  const closeTrainBtn = document.getElementById("mlCloseTrainPanel");
+
+  const updateParameterCards = () => {
+    if (!modelSelect) {
+      return;
+    }
+    parameterCards.forEach((card) => {
+      const isSelected = card.dataset.modelParams === modelSelect.value;
+      card.style.display = isSelected ? "block" : "none";
+      card.querySelectorAll("input, select").forEach((field) => {
+        field.disabled = !isSelected;
+      });
+    });
+  };
+
+  const openTrain = () => {
+    if (!trainDrawer) return;
+    trainDrawer.hidden = false;
+    trainDrawer.classList.add("is-open");
+    trainDrawer.querySelector(".ml-train-form")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  const closeTrain = () => {
+    if (!trainDrawer) return;
+    trainDrawer.classList.remove("is-open");
+    trainDrawer.hidden = true;
+  };
+
+  if (modelSelect) {
+    modelSelect.addEventListener("change", updateParameterCards);
+    updateParameterCards();
+  }
+
+  openTrainBtn?.addEventListener("click", openTrain);
+  closeTrainBtn?.addEventListener("click", closeTrain);
+</script>
+{% endblock %}
