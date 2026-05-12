@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+
+uploads/*
+!uploads/.gitkeep
+
+static/generated/*
+!static/generated/.gitkeep
+
+*.csv
+!test_stock.csv
+
+.env
+venv/
+.venv/
+.DS_Store
